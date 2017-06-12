@@ -26,6 +26,7 @@ import com.amazonaws.services.kms.model.GetKeyPolicyRequest;
 import com.amazonaws.services.kms.model.GetKeyPolicyResult;
 import com.amazonaws.services.kms.model.KeyMetadata;
 import com.amazonaws.services.kms.model.KeyUsageType;
+import com.amazonaws.services.kms.model.NotFoundException;
 import com.amazonaws.services.kms.model.PutKeyPolicyRequest;
 import com.amazonaws.services.kms.model.ScheduleKeyDeletionRequest;
 import com.google.inject.name.Named;
@@ -221,6 +222,11 @@ public class KmsService {
             // update last validated timestamp
             OffsetDateTime now = dateTimeSupplier.get();
             updateKmsKey(kmsKeyRecord.getAwsIamRoleId(), kmsCMKRegion, SYSTEM_USER, now, now);
+        } catch(NotFoundException nfe) {
+            logger.warn("Failed to validate KMS policy because the KMS key did not exist, but the key record did." +
+                            "Deleting the key record to prevent this from failing again: keyId: {} for IAM principal: {} in region: {}",
+                        awsKmsKeyArn, iamPrincipalArn, kmsCMKRegion, nfe);
+            awsIamRoleDao.deleteKmsKeyById(kmsKeyRecord.getId());
         } catch (AmazonServiceException e) {
             logger.warn(String.format("Failed to validate KMS policy for keyId: %s for IAM principal: %s in region: %s. API limit" +
                     " may have been reached for validate call.", awsKmsKeyArn, iamPrincipalArn, kmsCMKRegion), e);
